@@ -1,0 +1,147 @@
+####################  DNS     ####################
+
+DNS stands for domain name system 
+DNS is a system that is used to translate hostname to IP addresses (and vice versa) 
+Every computer system has an IP address and human beings cant remnber them because its so cumbersome 
+to fix that issue, hostnames / letters came up which computers dont understand, computers only undertsand digits 
+DNS does this translation for us 
+
+### DNS record ###
+A DNS record is simply a database that maps human-friendly URLs to IP addresses. 
+When someone types in a URL such as google.com, that entry is sent to an internet
+service provider (ISP) where it'is forwarded to the DNS servers, and then directed
+to the proper web server using the corresponding IP address as a label.
+
+Hostname to IP ==> A records
+IP to hostname ==> PTR records 
+Hostname to hostname ==> CNAME records 
+
+config files:
+/etc/named.conf ==> main DNS conf file, package is called bind
+/etc/name ==> dir that contains all the zone files 
+service ==> named
+
+########   download,install & configure your DNS server - instructions   ###########
+# create a snapshot of your machien first just in case you make a mistake in your configs 
+# set up: Master DNS, slave DNS and a client 
+
+### step 1: Instalation 
+# use the follwing comamnd to install the DNS packages as root (i already have it) ==>yum install bind-utils -y 
+[root@olivier-linux-server Linux-SysAdmin]# rpm -qa | grep -i bind
+bind-license-9.11.4-9.P2.el7.noarch
+bind-libs-9.11.4-16.P2.el7_8.2.x86_64
+bind-export-libs-9.11.4-9.P2.el7.x86_64
+bind-libs-lite-9.11.4-9.P2.el7.x86_64
+bind-libs-lite-9.11.4-16.P2.el7_8.2.x86_64
+bind-utils-9.11.4-16.P2.el7_8.2.x86_64
+rpcbind-0.2.0-49.el7.x86_64
+bind-export-libs-9.11.4-16.P2.el7_8.2.x86_64
+bind-license-9.11.4-16.P2.el7_8.2.noarch
+bind-9.11.4-16.P2.el7_8.2.x86_64
+
+# [root@olivier-linux-server Linux-SysAdmin]# ip a | grep -i inet  ==> make sure you know your IP 
+  inet 192.168.1.85/24 brd 192.168.1.255 scope global noprefixroute dynamic enp0s3
+# [root@olivier-linux-server Linux-SysAdmin]# ping -c1 www.google.com ==> also make sure you have access to the web 
+  PING www.google.com (216.58.205.36) 56(84) bytes of data.
+  64 bytes from mil04s24-in-f36.1e100.net (216.58.205.36): icmp_seq=1 ttl=54 time=7.99 ms
+--- www.google.com ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 7.995/7.995/7.995/0.000 ms  
+
+### Step 2: configuration 
+# its a good practise make back up copy of the DNS config file before changing anyhting 
+# vi /etc/named.conf ==> edit the DNS config file 
+  change this config ==> listen-on port 53 { 127.0.0.1; }; and add your machine's IP as per below 
+  listen-on port 53 { 127.0.0.1; 192.168.1.85; };
+  secondly,
+  edit zone 
+  zone "." IN {
+        type hint;
+        file "named.ca";
+  change it to: 
+  zone "lab.local" IN {
+        type master;
+        file "forward.lab";
+        allow-update {none; };
+  };
+   zone "1.168.192.in-addr.arpa" IN {
+      type master;
+      file "reverse.lab";
+      allow-update { none; };
+  };
+ 		
+  "lab.local" is the domain thats i've picked to be the DNS domain 
+  forward resolve hostanmes into IPs (forward lookup) and reverse does the opposite (reverse lookup)  
+
+# [root@olivier-linux-server etc]# cd /etc/named
+[root@olivier-linux-server named]# touch forward.lab reverse.lab
+[root@olivier-linux-server named]# ll
+-rw-r--r-- 1 root root 0 May 14 03:08 forward.lab
+-rw-r--r-- 1 root root 0 May 14 03:08 reverse.lab
+ 
+# [root@olivier-linux-server named]# vi forward.lab ==> modify the forward zone file and copy the content below 
+# research the internet for the meaning of every entry in this file 
+$TTL 86400
+@ IN SOA masterdns.lab.local. root.lab.local. (
+     2011071001 ;Serial
+     3600 ;Refresh
+     1800 ;Retry
+     604800 ;Expire
+     86400 ;Minimum TTL
+)
+@    IN NS	   masterdns.lab.local.
+@    IN A 	   192.168.1.29
+
+masterdns      IN A 192.168.1.85
+clienta   IN A 192.168.1.240
+clientb   IN A 192.168.1.241
+
+# the masterdns IP is our IP address 
+# every time you make a chnage to this file the serial No has to be updated 
+# clienta & clientb do not exist but i've added them them for testing puposes 
+  whether i could resolve them when done with the config
+
+add the below config to the reverse.lab zone file 
+$TTL 86400
+@ IN SOA masterdns.lab.local. root.lab.local. (
+2011071001 ;Serial
+3600 ;Refresh
+1800 ;Retry
+604800 ;Expire
+86400 ;Minimum TTL
+)
+@ IN NS masterdns.lab.local.
+@ IN PTR lab.local.
+masterdns IN A 192.168.1.85
+158 IN PTR masterdns.lab.local.
+240 IN PTR clienta.lab.local.
+241 IN PTR clientb.lab.local.
+
+### start the service ###
+systemctl start name.d 
+systemctl enable name.d
+systemctl stop firewalld     ===> dont do this in a prod env. (this a test lab @home) 
+systemctl disable firewalld
+
+# configuring permisison for the DNS config files 
+chgrp named -R /var/named
+chown -v root:named /etc/named.conf 
+
+# test DNS configs
+named-checkconf /etc/named.conf ==> no output ? then all ok
+named-checkconf /etc/named/forward.lab
+named-checkconf /etc/named/reverse.lab
+
+# add DNS server info to the network file 
+vi /etc/sysconfig/network-scripts/ifcfg-enp0s3 ==> this is my network interface config file 
+add DNS=<Your_Ip> after the last line 
+
+modify the /etc/resolv.conf  ==> default gateway address is here 
+nameserve:x.x.x.x ==> add your machine IP here (this is your new DNS server) 
+
+# systemctl restart network ==> restart your network service
+# use your DNS lookup utility to test your config is working with the "dig" or "nslookup" command 
+dig  <hostname> and dig <IP>
+nslookup <hostname> and nslookup <IP>
+
+# restart your DNS service to revert back to your original configs 

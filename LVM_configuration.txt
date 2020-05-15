@@ -1,0 +1,140 @@
+####################  LVM  ####################
+LVM (Logical volume management) allow multiple disks to be combined together and its software based.
+one disk ===> create a volume group (associated with one disk) LVM SW
+         ===> then you could have as many partitions as you want e.g home, swap, system, var etc.  
+
+say you have 3 disks of 100G (combined together) ==> create a vol. grp (size of the grp become 300GB) 
+                                                 ==>  then you create diff logical vol. e.g data1, data2, date3
+whats the advantage of LVM ? you could add another disk to your volume group and extend it without breaking it.
+This is very useful in a corporate environment because as a sys-admin guy, when other teams such as dev usually
+always ask for more space /disks to add more capacity to a system.
+
+
+####################  LVM config & instalation on oracle VM   ####################
+# create a new VM on oracle VM with centos 7 (thats what i am using) provided you have an ISO file etc.
+# choose your desired hostname  
+# leave the network settings turned off 
+# custom partition config:  select this -> click on the disk then i will configure partition myself ->  click done 
+                            use the LVM parition scheme -> click ont he plus sign -> add some points (in my case i've added       
+		            /home with as desired size: 2g -> you can modify your group name to anything you want
+			    created more partitons /var with 2G,/swap with 1G & /boot & 500M -> then for the rest of the disk
+           		    just pick / & all under desired capacity -> confirm the configs, click done & accept your chnages                            pick xfs as a file system type -> leave label empty.
+
+# choose a username + password etc. and reboot your machine, once rebooted, please login 
+# df -h ==> will show all the paritions you've created (i cant copy / paste from this VM as it wont let me for some reason)
+
+					
+####################  add disk and create LVM partition   ####################
+create LVM new disk partitions 
+1. create HDD ==> every HDD need a partition on top of it 
+2. create partitions
+3. create a physical volume for each partitions
+4. create a vol group (this represent the entire vol grp for that disk)
+5. create a logical volume
+6. mount the LV to our file system 
+
+##### STEPS ######
+# go to your settings from oracle V. box -> storage -> controller -> add new disk then create new HDD -> pick a name you like
+  create -> boot up the system. 
+  
+# login as root 
+
+# fdisk -l 
+  The 3rd disk will have sdc, 2nd sdb and 1st is sda with all their respective size  
+  
+# fdisk /dev/sdc ==> create the partition, click n, then p, and the rest just hit enter to pick the default value
+                     under command (m for help): click t -> l -> and choose lvm which should be 8e -> hit p to confirm
+                     then w to sync the disks
+					 
+# pvcreate /dev/sdc1 ==> create the physical volume and the part. number which is 1
+# pvdisplay ==> verify with this and it will tell you the vol details, physical vol. size etc. 
+# vgcreate <your_desired_vol_grp> /dev/sdc1  ==> create a volume group 
+# vgdisplay <your_desired_vol_grp>
+# create your logical volume
+  lvcreate -n <logical group name> --size 1023 <volume_grp_name> 
+# lvdisplay ==> display your LV info 
+# format the disk & assign the file system to the partition 
+  mkfs.xfs /dev/<vol_grp_name>/<logical_vol_grp> 
+
+# mount it 
+mkdir /new_dir 
+mount /dev/<vol_grp_name>/<logical group name>  /new_dir
+# verify with df -h to see your partitions and moint points etc. 
+# if you want to mount this partition at boot time then edit the /etc/fstab file and add the follwing
+  config at the bottom of the file:
+  /dev/<vol_grp_name>/<logical group name>/<new_dir> xfs defaults 0 0
+
+# notes:
+error encountered: group file system cant be of type lvmlv 
+anything with /dev/mapper means its mounted on LVM
+
+
+####################  extend disk using LVM  ####################
+why do we need to extend a disk ?
+when this disk becomes full for example  for /oracle =1.0G is full, you have a few options such as 
+the below: 
+# delete older files to free up disk space 
+# add a new physical disk and mount it to /oracle2 
+# or create a new virtual disk and mount it to /oracle2 
+# or extend /oracle through LVM 
+
+###### in this case we are going to extend the disk using LVM  ######
+# under settings -> storage -> add new disk under controller -> then give it whatever size you need 
+# log in & become root
+# do a df -h ==> have a look at the partion you're trying to extend (the one with 100%)
+# fdisk -l /dev/xxx ==> check the new disk is there (in my case its /dev/sdd)
+# fidsk /dev/sdd  ==> partition your new disk 
+# fdisk -l | more ==> you should see /dev/sdd1 created 
+# reboot the system so its updated 
+# fdisk -l /de/sdd1 ==> make sure its there 
+# pvdisplay or pvs ==> shows which grp its assiciated to  (VG name) 
+# vgdisplay <group_name>
+# pvcreate /dev/sdd1 ==> create the physical vol
+# vgextend <vol_group> /dev/sdd1 ==> extend it now & associate to sdd1
+# lvextend -L+1024M /dev/mapper/<vol_grp>/<lv_grp>  ==> specify the size
+# xfs_growfs /dev/mapper/<vol_grp>/<lv_grp> ==> extend the file systems
+
+
+####################  extend the swap space   ####################
+# whats swap ? 
+used when the amount of physical RAM is full, its not a replacement for more RAM 
+its a virtual mem. that comes form your HDD, its recommended that swap space is twice the size of RAM
+
+used when the amount of physical RAM is full 
+its not a replacement for more RAM 
+its a virtual mem that comes form your HDD 
+recommended swap space is twice the size of RAM 
+
+# [root@olivier-linux-server data]# df -h
+  Filesystem               Size  Used Avail Use% Mounted on
+  devtmpfs                 2.4G     0  2.4G   0% /dev
+  tmpfs                    2.4G     0  2.4G   0% /dev/shm
+  tmpfs                    2.4G  8.7M  2.4G   1% /run
+  tmpfs                    2.4G     0  2.4G   0% /sys/fs/cgroup
+  /dev/mapper/centos-root   17G   13G  4.3G  76% /
+  /dev/sda1               1014M  232M  783M  23% /boot
+  tmpfs                    492M     0  492M   0% /run/user/1000
+
+# /dev/sda1 1014M  232M  783M  23% /boot ==> assigned to swap 
+# free -m ==> check your swap space & how much RAM you have
+# become root 
+# dd if=/dev/zero of=/newswap bs=1M count=104 ==> newswap is the name im picking for the new file 
+                                                  if means read from file which dev/zero  of means write to a file 
+						  of means write to a file 
+					          bs means read / write bytes by types @the time 
+						  count is the total size of the file of course
+												  
+# cd / && ls -ltr ==> your new file should be created here 	(newswap)										   									  
+# why didnt we create the file ourselves ? we wanted to take away some chunks from our disk and dedicate to or file
+                                           which we cant do with touch 
+# chmod go-r newswap ==> remove read perm. for g & o as we dont want others to read the file  
+# mkswap /newswap 
+# swapon /newswap ==> turn on the swap, tell the OS that this is the new swap 
+# free -m ==> check whether the size of your swap has been increased 
+# vi /etc/fstab ==> enable swap space during boot time 7 add the below line 
+  /newswap    swap    swap defaults  0    0
+# reboot your system ==> init 6
+# delete the swap if needed or done with your testing ...
+swapoff /newswap 
+rm /newswap & remove the config from fstab
+

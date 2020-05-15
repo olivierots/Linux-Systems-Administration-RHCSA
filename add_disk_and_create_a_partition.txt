@@ -1,0 +1,79 @@
+####################  adding disk & creating a partition   ####################
+
+purpose for doing this ? your disk may be out of space or your system is running additional apps 
+
+##### STEP 1 ######
+# Take snapshot from oracle VM 
+# create a new disk: go to settings -> storage -> controller -> add new disk (create a new one)
+                     keep all settings defaults -> i named my disk after new_disk (allocate at least 1.5G -> create 
+# start your VM
+# fdisk -l | more  ==> the sdb one is the dik we've just added which we will eb working on
+Disk /dev/sdb: 1610 MB, 1610612736 bytes, 3145728 sectors
+Units = sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disk label type: dos
+Disk identifier: 0x7b391eba
+					 
+# [root@olivier-linux-server jenkins]# fdisk /dev/sdb
+Welcome to fdisk (util-linux 2.23.2).
+Changes will remain in memory only, until you decide to write them.
+Be careful before using the write command.
+Command (m for help):
+# click n for new (you can also use the h option to see all other different options)
+  Select (default p): p
+  Partition number (1-4, default 1): 1
+  press enter (default for the all the options)
+# command (m for help): w ==> to create the disk  
+# run fdisk -l again ==> /dev/sdb1  first partition you create, it assign it number 1 
+Device Boot      Start         End      Blocks   Id  System
+/dev/sdb1            2048     3145727     1571840   83  Linux
+
+#### STEP 2 ######
+##### assign a file system type  ==> we have diff types of file systems such as  ext2-3, xfs, ntfs etc. ######
+[root@olivier-linux-server jenkins]# mkfs.xfs /dev/sdb1
+meta-data=/dev/sdb1              isize=512    agcount=4, agsize=98240 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0, sparse=0
+data     =                       bsize=4096   blocks=392960, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096 
+
+#### STEP 3 #####
+# now mount the file system 
+mkdir /data under root 
+[root@olivier-linux-server /]# mount /dev/sdb1 /data
+[root@olivier-linux-server data]# df -h | grep -i data
+/dev/sdb1                1.5G   33M  1.5G   3% /data
+
+# create a directory called data under root and call it data 
+[root@olivier-linux-server /]# ls -l data
+drwxr-xr-x.   2 root   root      6 May 10 05:51 data
+
+# mount it to the partiiton 
+[root@olivier-linux-server /]# mount /dev/sdb1 /data
+[root@olivier-linux-server /]#
+
+# verify the partition ahs now been created 
+[root@olivier-linux-server /]# mount /dev/sdb1 /data
+[root@olivier-linux-server /]# df -h
+/dev/sdb1                1.5G   33M  1.5G   3% /data
+
+# enable the mounting at the system reboot 
+vi /etc/fstab
+add the follwing line @ the bottom (make you dont make any mistake otherwise your system wont reboot)
+/dev/sdb1       /data   xfs     defaults        0       0
+
+# init 6 ==> reboot your system 
+# check that its properly mounter
+[jenkins@olivier-linux-server ~]$ df -h | grep data
+/dev/sdb1                1.5G   33M  1.5G   3% /data
+
+# to unmount it, use the below command 
+unmount /data 
+https://stackoverflow.com/questions/7878707/how-to-unmount-a-busy-device
+
+

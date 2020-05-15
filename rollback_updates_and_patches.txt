@@ -1,0 +1,57 @@
+####################   rollback updates & patches       ####################
+
+sometimes after an update, there could be some compatibility issues in your db or applications you
+are running or the new updates arent compatible with your applications. 
+This procedure shows you how to fix this sort of issues using a simple package e.g ksh 
+
+# always create a snapshot before applying any upgrade or downgrade in case something goes wrong 
+# yum install ksh* -y 
+# rpm -qa | grep -i ksh* ==> check the package is installed 
+ksh-20120801-142.el7.x86_64
+[root@olivier-linux-server yum.repos.d]# yum history
+Loaded plugins: fastestmirror
+ID     | Command line             | Date and time    | Action(s)      | Altered
+-------------------------------------------------------------------------------
+    23 | install ksh*             | 2020-05-08 09:55 | Install        |    1
+    22 | install finger -y        | 2020-05-06 02:09 | Install        |    1
+    21 | load-transaction /tmp/yu | 2020-05-06 01:56 | Install        |    1
+    20 | load-transaction /tmp/yu | 2020-04-22 00:16 | Install        |    1
+    19 | load-transaction /tmp/yu | 2020-04-09 23:34 | Install        |    5 EE
+    18 | install mysql-workbench- | 2020-03-30 00:32 | Install        |   88
+    17 | install mysql-server     | 2020-03-29 22:47 | Install        |    2
+    16 | remove mysql             | 2020-03-29 22:31 | Erase          |    2
+    15 | update                   | 2020-03-29 21:07 | I, O, U        |  174
+
+#[root@olivier-linux-server yum.repos.d]# yum history undo 23 ==> perform the rollback using the correct ID
+
+NB:  
+yum update ==> update preserve old versions and you can rollback 
+yum upgrade ==> delete old / obslete packages & replace it with newer packages & you cant rollback 
+
+####################  addtional   ####################
+## with yum
+[root@olivier-linux-server yum.repos.d]# rpm -qa | grep -i ksh
+[root@olivier-linux-server yum.r epos.d]# yum install ksh*   ==> install a package
+yum remove ksh* ==> remove the package 
+
+## with rpm
+search for centos.rpm package online
+wget http://<url>
+rpm -hiv <package_name> ==> install the package 
+rpm -qa | grep <package> ==> check its installed 
+rpm -qi <package_name> ==> package info 
+rpm -e <package_name> ==> delelte package 
+
+rpm -qc <package_name> ==> list of all the config files 
+[root@olivier-linux-server yum.repos.d]# rpm -qc ksh.x86_64 0:20120801-142.el7
+/etc/binfmt.d/kshcomp.conf
+/etc/kshrc
+/etc/skel/.kshrc
+package 0:20120801-142.el7 is not installed
+
+# find which package a command belong to (every package has a command associated with it)  
+[root@olivier-linux-server Linux-SysAdmin]# which netstat
+/bin/netstat
+[root@olivier-linux-server Linux-SysAdmin]# rpm -qf /bin/netstat
+net-tools-2.0-0.25.20131004git.el7.x86_64
+

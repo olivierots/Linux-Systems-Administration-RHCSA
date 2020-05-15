@@ -1,0 +1,119 @@
+####################   NFS      #########################
+
+NFS is about sharing your disk, drives and files with other systems 
+there are diff types of file systems: ext2-3,xfs,ntfs (windows),fat (windows) etc. 
+NFS is not local to your computer, NFS is part of NAS 
+It was developed by sun microsystem 
+
+its a client /server system that allow users to access file accross a network and treat them
+as if its mounted locally. e.g you can access files in machine2 from machine1 
+
+client machine ----- NFS request ------> server (this server has all the policy)
+               <---- approved -------  who is authorised and who is not
+
+### steps for NFS config on the NFS server:
+
+1. instalation, enabling the services & start them up 
+# log in as root 
+# yum install nfs-utils libnfsidmap -y 
+# systemctl enable rpcbind 
+# systemctl enable nfs-server 
+# systemctl status rpcbind
+# start the follwing services: rpcbind, nfs-server, rpc-statd, nfs-idmapd 
+# systemctl start nfs-server
+# systemctl status rpc--d
+# systemctl status rpc-d
+# systemctl status rpc-statd
+# systemctl status rpc-statd
+# systemctl status nfs-server
+# systemctl status nfs-idmapd
+
+# create NFS share directory and assign permissions 
+mkdir /mynfsdir  
+chmod a+rwx mynfsdir 
+[root@olivier-linux-server /]# ll
+drwxrwxrwx.   2 root   root     60 May 11 20:17 mynfsdir
+[root@olivier-linux-server mynfsdir]# touch {a..b}
+[root@olivier-linux-server mynfsdir]# touch kramer
+[root@olivier-linux-server mynfsdir]# echo "testing my NFS server" > kramer
+[root@olivier-linux-server mynfsdir]# ll
+-rw-r--r--. 1 root root  0 May 11 19:09 a
+-rw-r--r--. 1 root root  0 May 11 19:09 b
+-rw-r--r--. 1 root root  0 May 11 19:09 c
+-rw-r--r--. 1 root root 22 May 11 19:09 kramer
+
+# modify /etc/exports file to add new shared filesystem as per below 
+modify /etc/exports 
+/mynfsdir 192.168.x.x rw , sync, no_root_quash) = for only one host 
+[root@olivier-linux-server mynfsdir]# cat /etc/exports
+/mynfsdir       *(rw,sync,no_root_squash)
+
+# config explanation #
+my NFS share is the directory "mynfsdir"
+give client rw access 
+sync ==> all changes to the FS are imediately flushed to disk 
+no_root_squash ==> root on the client machine will have same level of access on the sytem as root on this serv. 
+
+# then execute exportfs -rv 
+[root@olivier-linux-server mynfsdir]# exportfs -rv
+exporting *:/mynfsdir
+NFS server is READY and exporting to other machines 
+
+##### steps to configure the NFS client server #####
+
+of coursse use another machine (in my case i used the clone of my master machine)
+yum install nfs-utils libnfsidmap -y
+yum install nfs-utils rpcbind
+service rpcbind start 
+
+ps -ef | egrep "firewall| iptable" ==> make sure firewall & iptables services are  stopped 
+
+[root@olivier-linux-server_1 jenkins]# ps -ef | grep -i iptable
+root      2337  1998  0 20:08 pts/0    00:00:00 grep --color=auto -i iptable
+[root@olivier-linux-server jenkins]# ps -ef | grep -i firewall
+root       780     1  0 19:35 ?        00:00:02 /usr/bin/python2 -Es /usr/sbin/firewalld --nofork --nopid
+root      2339  1998  0 20:08 pts/0    00:00:00 grep --color=auto -i firewall
+
+disable firewalld from both the nfs server and the client with the below commands
+systemctl stop <service_name> 
+systemctl disable <service_name>
+
+[root@olivier-linux-server_1 jenkins]# showmount -e 192.168.1.85 ==> the mount from my client server is showing
+Export list for 192.168.1.85:
+/mynfsdir *
+
+# show the mount from the NFS server 
+showmount -e 192.168.x.x (NFS server IP) ==> show mount from NFS server
+
+[root@olivier-linux-server jenkins]# showmount -e 192.168.1.85
+clnt_create: RPC: Port mapper failure - Unable to receive: errno 113 (No route to host)
+ 
+# create a mount point  
+mkdir /mnt/app  
+[root@olivier-linux-server /]# mkdir /mnt/kramer
+
+# mount the NFS filesystem 
+mount 192.168.x.x:/mynfsdir /mnt/   ==> create the NFS file system (thats the NFS server IP )
+mount 192.168.1.85:/mynfsdir /mnt/kramer
+[root@olivier-linux-server /]# cd /mnt/kramer/
+[root@olivier-linux-server_1 kramer]# ll  ==> The files i created earlier on from the NFS server is showing 
+                                             on my client server 
+-rw-r--r--. 1 root root  0 May 11 19:09 a
+-rw-r--r--. 1 root root  0 May 11 19:09 b
+-rw-r--r--. 1 root root  0 May 11 19:09 c
+-rw-r--r--. 1 root root 22 May 11 19:09 kramer
+
+[root@olivier-linux-server kramer_1]# df -h                ==> verify the mount
+Filesystem               Size  Used Avail Use% Mounted on
+devtmpfs                 2.4G     0  2.4G   0% /dev
+tmpfs                    2.4G     0  2.4G   0% /dev/shm
+tmpfs                    2.4G  8.7M  2.4G   1% /run
+tmpfs                    2.4G     0  2.4G   0% /sys/fs/cgroup
+/dev/mapper/centos-root   17G   13G  4.3G  76% /
+/dev/sda1               1014M  232M  783M  23% /boot
+tmpfs                    492M     0  492M   0% /run/user/1000
+tmpfs                    492M     0  492M   0% /run/user/0
+192.168.1.85:/mynfsdir    17G   13G  4.3G  76% /mnt/kramer
+
+create a file on the client side and check if it shows up on the server side 
+unmount /mnt/mynfsdir ==> if you do need it anymore or just using it for testing puposes 

@@ -1,0 +1,256 @@
+####################    NIC information     ####################
+
+# network interface card:
+a NIC is atatched to any computer, desktop, server etc. you connect your cable e.g CAT and that port is called NIC
+to find info about your NIC, you run ethtool <your_interface>
+# other NICs
+# The lo (lookpack device) is a special interface that your computer uses tocommunicate with itself.
+its mainly used for diagnostics & troubleshooting.
+[root@olivier-linux-server Linux-SysAdmin]# ethtool lo
+Settings for lo:
+        Link detected: yes
+# virb0 = an interface used for NAT (network address translation) 
+
+these are the sort of info you need provide your network team with when configuring switches etc. 
+
+[root@olivier-linux-server Linux-SysAdmin]# ethtool enp0s3
+Settings for enp0s3:
+        Supported ports: [ TP ]
+        Supported link modes:   10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Supported pause frame use: No
+        Supports auto-negotiation: Yes
+        Supported FEC modes: Not reported
+        Advertised link modes:  10baseT/Half 10baseT/Full
+                                100baseT/Half 100baseT/Full
+                                1000baseT/Full
+        Advertised pause frame use: No
+        Advertised auto-negotiation: Yes
+        Advertised FEC modes: Not reported
+        Speed: 1000Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 0
+        Transceiver: internal
+        Auto-negotiation: on
+        MDI-X: off (auto)
+        Supports Wake-on: umbg
+        Wake-on: d
+        Current message level: 0x00000007 (7)
+                               drv probe link
+        Link detected: yes
+
+
+####################    NIC bonding      ####################
+
+NIC bonding is can be defined as the agregation or combination of multiple 
+NIC into a single bond interface. Its main pupose is to provide high availability
+and redundancy. if one port dies, the other one can be used.
+
+##### NIC bonding procedure #####
+
+# power off your oracle VM 
+# take a snapshot of your oracle VM
+# create a new NIC ==> go to settings -> network -> adapter 2 -> check enable adapter 
+                       choose bridged adapter under attched to -> use the wireless option under name (if working on a laptop)
+                       click ok -> 	start your VM up.			   
+
+# we now have an extra network interface created, enp0s8 is the one we've just created on oracle virtual box 
+  we now need to combine both and create a bond.
+# [root@olivier-linux-server jenkins]# ifconfig | more
+# enp0s3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.1.85  netmask 255.255.255.0  broadcast 192.168.1.255
+        inet6 fe80::131d:dc9c:94ac:6e5b  prefixlen 64  scopeid 0x20<link>
+        inet6 fdaa:bbcc:ddee:0:b8fc:8c57:9fa4:79b9  prefixlen 64  scopeid 0x0<global>
+        inet6 2a00:23c7:671f:fd00:42bc:4efa:9687:dd0a  prefixlen 64  scopeid 0x0<global>
+        ether 08:00:27:63:c6:c0  txqueuelen 1000  (Ethernet)
+        RX packets 275  bytes 92165 (90.0 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 248  bytes 30758 (30.0 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+enp0s8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.1.86  netmask 255.255.255.0  broadcast 192.168.1.255
+        inet6 fe80::88fb:a1e8:fab3:2e64  prefixlen 64  scopeid 0x20<link>
+        inet6 2a00:23c7:671f:fd00:4a00:f7b8:d88c:1ba3  prefixlen 64  scopeid 0x0<global>
+        inet6 fdaa:bbcc:ddee:0:cc20:48f5:c3af:e57f  prefixlen 64  scopeid 0x0<global>
+        ether 08:00:27:75:2b:12  txqueuelen 1000  (Ethernet)
+        RX packets 206  bytes 88059 (85.9 KiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+
+# [root@olivier-linux-server jenkins]# modinfo bonding | grep -i ethernet ==> my bonding driver is already installed 
+  description:    Ethernet Channel Bonding Driver, v3.7.1
+
+# vi /etc/sysconfig/network-scripts/ifcfg-bond0
+# add the below parameters below 
+# BOOTPROTO ==> none or static is if you want to assign a static IP 
+# ONBOOT ==> to enable when the system reboots 
+# IPADDR ==> i chose that IP because that IP does not exist yet and nobody has taken it
+             you can confirm this by pinging it and you wont get a response.
+[jenkins@olivier-linux-server ~]$ ping -c 1 192.168.1.80
+PING 192.168.1.80 (192.168.1.80) 56(84) bytes of data.
+From 192.168.1.85 icmp_seq=1 Destination Host Unreachable
+--- 192.168.1.80 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+# GATEWAY ==> Ip address of your modem 
+# BONDING_OPTS ==> this is the speed & state 
+
+##### config to paste inside the ifcfg-bond0 file ######			 
+DEVICE=bond0
+TYPE=Bond
+NAME=bond0
+BONDING_MASTER=yes
+BOOTPROTO=none
+ONBOOT=yes
+IPADDR=192.168.1.80
+NETMASK=255.255.255.0
+GATEWAY=192.168.1.1
+BONDING_OPTS=”mode=5 miimon=100”
+
+# edit the first NIC file & delete all its content 
+# vi /etc/sysconfig/network-scripts/ifcfg-bond0
+# add the below config 
+# HWADDR ==> use the ifconfig command and its the value of ether for your interface 
+# MASTER ==> the file we created earlier on is the master 
+
+TYPE=Ethernet
+BOOTPROTO=none
+DEVICE=enp0s3
+ONBOOT=yes
+HWADDR=”MAC from the ifconfig command”
+MASTER=bond0
+SLAVE=yes
+
+# create a second NIC file for enp0s8 with below config 
+# same file as the previous but change the MAC address & Device name 
+[root@olivier-linux-server network-scripts]# cat ifcfg-enp0s8
+TYPE=Ethernet
+BOOTPROTO=none
+DEVICE=ifcfg-enp0s8
+ONBOOT=yes
+HWADDR=08:00:27:75:2b:12
+MASTER=bond0
+SLAVE=yes
+
+# systemctl restart network ==> restart the service 
+# do an ifconfig 
+  you should see your bond0 interface with the assigned IP and the other tweo network interfaces
+  defined as slaves.   
+# connect to the IP using putty  
+  if the conenction is succesful then you know your bond is created 
+# very the settings using cat /proc/net/bonding/bond0 
+# once done, revert to your old settings and restore to your snapshot 
+
+
+
+
+
+
+
+
+#########################    additonal resources    ##############################
+## managing Kernel modules 
+
+## kernel 
+interfaces between your HW & yhour SW
+SW ==> user, application (browser, sendmail) shell then kernel and HW (CPU, RAM, HD)
+we execute commands and these commands are forwarded to the kernel
+kernel: core and heart of the OS, layer that sit between HW & SW
+Its responsible for tasks such as disk management, process management,
+security, routing table and systems reosurces management
+
+the kernel has large parts of its functionality slpit into modules 
+small pieces of codes that can be loaded and unloaded at will 
+this helps keep the base kernel image smaller so that only code thats actually needed in loaded into RAM
+
+lsmode ==> list loaded modules 
+cd /sys/module ==> kernel modules 
+
+ls -l /sys/class/net/enp0s3/device/ ==> drivers & which module is being used 
+modinfo ==> load any modules 
+modprobe ==> load the modules 
+
+################### network configs notes ###################
+
+###### show all your interfaces & add / configure a new interface(s)
+
+[root@olivier-linux-server samba_test]# nmcli dev status
+DEVICE           TYPE      STATE      CONNECTION
+enp0s3           ethernet  connected  enp0s3
+br-2456ea71b02b  bridge    connected  br-2456ea71b02b
+docker0          bridge    unmanaged  --
+lo               loopback  unmanaged  --
+
+ip addr show enp0s3
+NAME             UUID                                  TYPE      DEVICE
+enp0s3           23f5f6a5-8743-407b-a39b-4086e984de0b  ethernet  enp0s3
+br-2456ea71b02b  7fd99789-0b04-423e-8da0-5d0d8010d60f  bridge    br-2456ea71b02b
+System eth0      5fb06bd0-0bb0-7ffb-45f1-d6edd65f3e03  ethernet  --
+
+# adding a new interface to your server 
+add a new interface via oracle VM box
+nmcli con add con-name enoxxxx type ehthernet ifname enoxxxx ip4192.168.x.x gw4 192.168.x.x
+
+
+##################   modify the network connection    #########################
+[root@olivier-linux-server samba_test]# nmcli dev status
+DEVICE           TYPE      STATE      CONNECTION
+enp0s3           ethernet  connected  enp0s3
+br-2456ea71b02b  bridge    connected  br-2456ea71b02b
+docker0          bridge    unmanaged  --
+lo               loopback  unmanaged
+
+[root@olivier-linux-server samba_test]# ip addr show enp0s3
+2: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UP group default qlen 1000
+    link/ether 08:00:27:63:c6:c0 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.1.85/24 brd 192.168.1.255 scope global noprefixroute dynamic enp0s3
+       valid_lft 76347sec preferred_lft 76347sec
+    inet6 2a00:23c7:671f:fd00:42bc:4efa:9687:dd0a/64 scope global noprefixroute dynamic
+       valid_lft 315359976sec preferred_lft 315359976sec
+    inet6 fdaa:bbcc:ddee:0:b8fc:8c57:9fa4:79b9/64 scope global noprefixroute
+       valid_lft forever preferred_lft forever
+    inet6 fe80::131d:dc9c:94ac:6e5b/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever  
+
+# change the IP ==> nmcli con mod enp0s3 ipv4.addresses "192.168.x.x"
+# activate the service for the change to take place ==> nmcli con up <device>
+# how to midify the system hostname ==> hostnamectl set-hostname <new_host>
+# delete network interface ==> nmcli con del <interface_name> 
+# network config file ==> /etc/sysconfig/network-scripts ==> all interfaces are here 
+
+
+###### routing tables ##########
+its the set of rules that govern how you make connections to other systems on the same network or different network 
+the path a connection follow, some connection have to go through a router or more routers to get to a dest. 
+e.g email, transfering files, logging via ssh etc.
+
+netstat -rn ==> show the route table 
+[root@olivier-linux-server network-scripts]# netstat -rn
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+0.0.0.0         192.168.1.254   0.0.0.0         UG        0 0          0 enp0s3
+172.17.0.0      0.0.0.0         255.255.0.0     U         0 0          0 docker0
+172.18.0.0      0.0.0.0         255.255.0.0     U         0 0          0 br-2456ea71b02b
+192.168.1.0     0.0.0.0         255.255.255.0   U         0 0          0 enp0s3
+
+Destination ==> where connections are headed (this is a network)
+Gateway ==> connections goes here first before getting to the dest (can be a local router)
+            0.0.0.0 you can go directly to the dest without going to the router 
+Genmask ==> what systems (source IP) are covered by your destination 0.0.0.0  
+            The netmask refers to the destination address			
+
+flags ==> U=up UG=default gateway 
+MSS ==> max segment size 
+window ==> size of packets that can be transmitted
+
+https://stackoverflow.com/questions/8599424/understanding-routing-table-entry
+
+# easier 
+[root@olivier-linux-server network-scripts]# ip route
+default via 192.168.1.254 dev enp0s3 proto dhcp metric 100
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1
+172.18.0.0/16 dev br-2456ea71b02b proto kernel scope link src 172.18.0.1
+192.168.1.0/24 dev enp0s3 proto kernel scope link src 192.168.1.85 metric 100 
+
+
