@@ -27,14 +27,15 @@ Beside the above i've also enhanced my skillset & understanding of the below top
 * Shell scripting
 * Networking, Services, and System Updates (inc. scp, rsynch, ssh, telnet, apache, LDAP, FTP, NIC etc.)
 * Disk Management, RAID and Run Levels
-* redhat satellite & kickstarter 
+* Redhat satellite & kickstarter 
 * Kernel modules
-* troubleshooting 
-* backup & restore 
-* advanced file processing /editing such as awk, sed, cut, sort, grep, vim & find 
+* Troubleshooting 
+* Backup & restore 
+* Advanced file processing /editing such as awk, sed, cut, sort, grep, vim & find 
 * and many more ....
 
 Ref:
+
 https://www.udemy.com/course/complete-linux-training-course-to-get-your-dream-it-job/
 https://www.udemy.com/course/red-hat-linux-administration-advance-level-troubleshooting/
 https://www.udemy.com/course/linux-administration-bootcamp/
