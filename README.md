@@ -7,15 +7,15 @@ Corporate world and the one i've mostly used in my career.In this repo, I have a
 used to confifure the below services / systems on my test server @home. I use CentOS Linux 
 release 7.8.2003 and Virtualbox 6.0
 
-1.  LVM config & instalation on oracle VM 
+*  LVM config & instalation on oracle VM 
     add disk and disk partitioning
     extending a disk using LVM  
     extending the swap space 
-2.  NFS  instalation & configuration 
-3.  Samba  instalation & configuration
-4.  NIC bonding  configuration 
-5.  advanced packagement management and rollback procedures 
-6.  DNS instalation & configuration
+*  NFS  instalation & configuration 
+*  Samba  instalation & configuration
+*  NIC bonding  configuration 
+*  advanced packagement management and rollback procedures 
+*  DNS instalation & configuration
 
 Beside the above i've also enhanced my skillset & understanding of the below topics:
 * Linux filesystems & ACLs
