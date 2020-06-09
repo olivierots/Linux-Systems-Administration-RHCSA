@@ -2,8 +2,8 @@
 
 Linux Systems administration tasks on Centos7 using oracle virtual box
 
-RHCSA has always been on my to do list as this is the number ONE operating system for the 
-Corporate world and the one i've mostly used in my career.In this repo, I've added procedures
+RHCSA has always been on my to do list as this is the number one OS in the 
+corporate world and the one i've mostly used throughout my career. In this repo, you will find procedures
 used to configure the below services / systems on my test server @home. I use CentOS Linux 
 release 7.8.2003 and Virtualbox 6.0
 
