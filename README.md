@@ -42,4 +42,5 @@ https://www.udemy.com/course/red-hat-linux-administration-advance-level-troubles
 https://www.udemy.com/course/linux-administration-bootcamp/
 https://www.udemy.com/course/linux-startup-red-hat-certified-systems-administrator/
 https://www.udemy.com/course/linux-troubleshooting-course/
+https://abarrak.gitbook.io/linux-sysops-handbook/
 ```
