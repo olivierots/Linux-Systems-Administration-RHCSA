@@ -43,4 +43,5 @@ https://www.udemy.com/course/linux-administration-bootcamp/
 https://www.udemy.com/course/linux-startup-red-hat-certified-systems-administrator/
 https://www.udemy.com/course/linux-troubleshooting-course/
 https://abarrak.gitbook.io/linux-sysops-handbook/
+https://media-exp1.licdn.com/dms/document/C4D1FAQHRJPOqSmUmrQ/feedshare-document-pdf-analyzed/0/1654000710419?e=1654732800&v=beta&t=EUKV8zisNeXpqlUY36MMpUp8lkL1p4SSm2yCA1Uaoy8
 ```
